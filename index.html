@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+  <meta name="theme-color" content="#0d1119" />
+  <meta property="og:title" content="시지프 — 끝없는 언덕" />
+  <meta property="og:description" content="화면을 꾹 눌러 돌을 밀어 올리는 픽셀 아트 미니게임." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>시지프 — 끝없는 언덕</title>
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0;background:#0d1119;color:#eee;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overscroll-behavior:none}
+    body{min-height:100vh;display:flex;justify-content:center}
+    #app{
+      width:min(100%,560px);
+      min-height:100vh;
+      background:#0d1119;
+      display:flex;
+      flex-direction:column;
+      padding:
+        max(10px,env(safe-area-inset-top))
+        max(10px,env(safe-area-inset-right))
+        max(12px,env(safe-area-inset-bottom))
+        max(10px,env(safe-area-inset-left));
+    }
+    .top{
+      display:flex;justify-content:space-between;align-items:flex-end;
+      gap:10px;padding:2px 2px 10px;
+    }
+    .title{font-size:14px;font-weight:800;letter-spacing:-.02em}
+    .subtitle{font-size:10px;color:#8f939c;margin-top:3px}
+    .record{text-align:right;font-size:10px;color:#9da1aa}
+    .record b{display:block;color:#eee;font-size:13px;margin-top:2px}
+    .game-shell{
+      position:relative;overflow:hidden;border:1px solid #444957;border-radius:16px;
+      background:#101827;touch-action:none;user-select:none;-webkit-user-select:none;
+      box-shadow:0 8px 30px rgba(0,0,0,.22);
+    }
+    canvas{
+      display:block;width:100%;height:auto;aspect-ratio:9/16;
+      image-rendering:pixelated;image-rendering:crisp-edges;background:#101827;
+    }
+    .hud{
+      position:absolute;top:10px;left:10px;min-width:145px;padding:8px 9px;
+      background:rgba(5,7,10,.76);border:1px solid rgba(255,255,255,.22);
+      backdrop-filter:blur(4px);font-size:10px;pointer-events:none;
+    }
+    .hud-row{display:flex;justify-content:space-between;gap:14px;margin:2px 0}
+    .will-label{margin-top:5px}
+    .will{height:7px;border:1px solid #777;background:#1e2129;margin-top:3px}
+    .will span{display:block;height:100%;width:100%;background:#b75a49;transition:width .08s linear}
+    .zone{
+      position:absolute;top:10px;right:10px;padding:7px 8px;
+      background:rgba(5,7,10,.66);border:1px solid rgba(255,255,255,.18);
+      text-align:right;font-size:9px;pointer-events:none
+    }
+    .zone b{display:block;font-size:10px}
+    .zone small{display:block;margin-top:3px;color:#a4a8af}
+    .center-quote{
+      position:absolute;left:50%;top:18%;transform:translateX(-50%);
+      width:78%;padding:10px 12px;background:rgba(8,9,12,.82);
+      border:1px solid rgba(224,218,197,.28);text-align:center;
+      opacity:0;transition:opacity .35s;pointer-events:none
+    }
+    .center-quote.show{opacity:1}
+    .center-quote .text{font-family:Georgia,'Times New Roman',serif;font-size:13px;line-height:1.55;color:#e4decc}
+    .center-quote .src{font-size:8px;color:#92958f;margin-top:6px;letter-spacing:.03em}
+    .hold-hint{
+      position:absolute;left:50%;bottom:15px;transform:translateX(-50%);
+      padding:8px 12px;background:rgba(5,7,10,.72);border:1px solid rgba(255,255,255,.17);
+      font-size:10px;color:#d8d8d1;pointer-events:none;white-space:nowrap;transition:opacity .25s
+    }
+    .progress{height:6px;background:#23262e;margin:0 3px}
+    .progress span{display:block;height:100%;width:0;background:#8f8875;transition:width .12s linear}
+    .controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+    button{
+      min-height:48px;border-radius:12px;border:1px solid #555b68;
+      background:#242832;color:#fff;font:inherit;font-weight:800;
+    }
+    button:active{transform:translateY(1px)}
+    #pushBtn.on{background:#d4c7a4;color:#171717}
+    #shareBtn{background:#181b22;color:#d4d7dc}
+    .note{font-size:10px;line-height:1.5;color:#9297a0;padding:10px 4px 0;text-align:center}
+    .share-status{
+      display:none;margin-top:8px;padding:9px 10px;border:1px solid #454a55;
+      border-radius:10px;background:#171a21;color:#c9ccd2;font-size:10px;
+      line-height:1.45;text-align:center
+    }
+    .share-status.show{display:block}
+    .intro{
+      position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+      padding:24px;background:rgba(6,8,12,.94);z-index:4;transition:opacity .35s;
+    }
+    .intro.hidden{opacity:0;pointer-events:none}
+    .intro-card{text-align:center;max-width:320px}
+    .intro-kicker{font-size:9px;letter-spacing:.15em;color:#92968f;margin-bottom:12px}
+    .intro h1{font-family:Georgia,'Times New Roman',serif;font-size:26px;line-height:1.25;margin:0 0 12px;font-weight:600}
+    .intro p{font-size:11px;line-height:1.6;color:#a8abb2;margin:0 0 18px}
+    .intro button{width:100%;background:#d4c7a4;color:#171717;border-color:#d4c7a4}
+    @media (min-width:520px){
+      #app{padding-top:18px}
+      .game-shell{border-radius:20px}
+      .hud{font-size:11px}
+      .zone{font-size:10px}
+      .center-quote .text{font-size:15px}
+      .hold-hint{font-size:11px}
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="top">
+    <div>
+      <div class="title">시지프 — 끝없는 언덕</div>
+      <div class="subtitle">누르고 있는 동안, 그는 다시 민다.</div>
+    </div>
+    <div class="record">최고 기록<b><span id="bestTop">0</span>m</b></div>
+  </div>
+
+  <div class="game-shell" id="gameShell" tabindex="0" aria-label="화면을 누르고 있으면 시지프가 바위를 밉니다">
+    <canvas id="game" width="360" height="640"></canvas>
+
+    <div class="hud">
+      <div class="hud-row"><span>거리</span><b><span id="dist">0</span>m</b></div>
+      <div class="will-label">의지</div>
+      <div class="will"><span id="will"></span></div>
+      <div class="hud-row"><span>최고</span><b><span id="best">0</span>m</b></div>
+      <div class="hud-row"><span>반복</span><b><span id="loops">0</span>회</b></div>
+    </div>
+
+    <div class="zone">
+      <b id="zone">달빛 폐허</b>
+      <small id="zoneDist">0 / 1,000m</small>
+    </div>
+
+    <div class="center-quote" id="quoteBox">
+      <div class="text" id="quoteText"></div>
+      <div class="src" id="quoteSource"></div>
+    </div>
+
+    <div class="hold-hint" id="holdHint">화면을 꾹 눌러 돌을 미세요</div>
+
+    <div class="intro" id="intro">
+      <div class="intro-card">
+        <div class="intro-kicker">THE MYTH OF SISYPHUS</div>
+        <h1>다시,<br>돌 앞에 선다.</h1>
+        <p>화면을 누르고 있는 동안 돌을 밀 수 있습니다.<br>손을 떼면 의지가 회복되지만 바위는 뒤로 밀립니다.</p>
+        <button type="button" id="startBtn">시작하기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="progress"><span id="progress"></span></div>
+
+  <div class="controls">
+    <button type="button" id="pushBtn">꾹 눌러 밀기</button>
+    <button type="button" id="shareBtn">공유 / 링크 복사</button>
+  </div>
+
+  <div class="share-status" id="shareStatus" aria-live="polite"></div>
+  <div class="note">
+    모바일에서는 게임 화면 아무 곳이나 꾹 눌러도 됩니다.<br>
+    PC에서는 SPACE / W / ↑ 키로 플레이할 수 있습니다.
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const canvas = $('#game');
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  const gameShell = $('#gameShell');
+  const pushBtn = $('#pushBtn');
+  const shareBtn = $('#shareBtn');
+  const startBtn = $('#startBtn');
+  const intro = $('#intro');
+
+  const distEl = $('#dist');
+  const willEl = $('#will');
+  const bestEl = $('#best');
+  const bestTopEl = $('#bestTop');
+  const loopsEl = $('#loops');
+  const zoneEl = $('#zone');
+  const zoneDistEl = $('#zoneDist');
+  const progressEl = $('#progress');
+  const quoteBox = $('#quoteBox');
+  const quoteText = $('#quoteText');
+  const quoteSource = $('#quoteSource');
+  const holdHint = $('#holdHint');
+  const shareStatus = $('#shareStatus');
+
+  const SCALE = 5.5;
+  const ZONE = 1000;
+
+  const zones = [
+    {name:'달빛 폐허',sky:'#101827',far:'#222e42',mid:'#394553',ground:'#595247',accent:'#d6cfb7'},
+    {name:'불타는 능선',sky:'#25151b',far:'#442328',mid:'#62372f',ground:'#604938',accent:'#df8750'},
+    {name:'안개 협곡',sky:'#162125',far:'#29373d',mid:'#405056',ground:'#515952',accent:'#bcc8c0'},
+    {name:'새벽 신전',sky:'#2b2839',far:'#544d61',mid:'#786b69',ground:'#675e50',accent:'#e2c698'}
+  ];
+
+  const lines = [
+    {text:'우리는 시지프를 행복한 사람으로 상상해야 한다.',source:'알베르 카뮈 · 『시지프 신화』'},
+    {text:'돌이 다시 굴러 내려와도, 선택은 다시 밀어 올리는 데 있다.',source:'『시지프 신화』에서 영감 받은 의역'},
+    {text:'삶이 답을 주지 않아도, 우리는 계속 살아가는 쪽을 선택한다.',source:'카뮈의 부조리 사상에서 영감 받은 의역'},
+    {text:'세계는 무심하다. 그래서 우리의 선택은 더 선명해진다.',source:'『이방인』에서 영감 받은 의역'},
+    {text:'정상보다 중요한 것은 다시 돌 앞에 서는 순간이다.',source:'『시지프 신화』에서 영감 받은 의역'},
+    {text:'의미가 주어지지 않는다면, 움직이며 의미를 만든다.',source:'카뮈의 부조리 철학에서 영감 받은 의역'},
+    {text:'무심한 세계에서도 태양은 뜨고, 사람은 다시 걷는다.',source:'『이방인』에서 영감 받은 의역'},
+    {text:'반복은 형벌일 수 있다. 그러나 태도는 여전히 우리의 것이다.',source:'『시지프 신화』에서 영감 받은 의역'}
+  ];
+
+  let pushing = false;
+  let started = false;
+  let pos = 0;
+  let vel = 0;
+  let will = 100;
+  let best = 0;
+  let loops = 0;
+  let runPeak = 0;
+  let rockRot = 0;
+  let t = 0;
+  let last = performance.now();
+  let lastMilestone = 0;
+  let lastZone = 0;
+  let dust = [];
+  let quoteTimer = 0;
+
+  try {
+    const saved = Number(localStorage.getItem('sisyphus_best') || 0);
+    if (Number.isFinite(saved) && saved > 0) best = saved / SCALE;
+  } catch(e) {}
+
+  function meters(){ return Math.max(0,pos) * SCALE; }
+  function zoneIndex(){ return Math.floor(meters()/ZONE) % zones.length; }
+  function scroll(){ return pos * 13; }
+  function groundY(x){ return 535 - x*0.22 + Math.sin((x+scroll())*0.045)*2; }
+
+  function rect(x,y,w,h,c){
+    ctx.fillStyle = c;
+    ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h));
+  }
+  function line(x1,y1,x2,y2,c,w){
+    ctx.strokeStyle = c;
+    ctx.lineWidth = w;
+    ctx.lineCap = 'square';
+    ctx.beginPath();
+    ctx.moveTo(Math.round(x1),Math.round(y1));
+    ctx.lineTo(Math.round(x2),Math.round(y2));
+    ctx.stroke();
+  }
+  function circle(cx,cy,r,c){
+    ctx.fillStyle = c;
+    for(let y=-r;y<=r;y+=2){
+      for(let x=-r;x<=r;x+=2){
+        if(x*x+y*y<=r*r) ctx.fillRect(Math.round(cx+x),Math.round(cy+y),2,2);
+      }
+    }
+  }
+
+  function mountain(base,amp,color,speed){
+    ctx.fillStyle=color;
+    ctx.beginPath();
+    ctx.moveTo(0,640);
+    const s=scroll()*speed;
+    for(let x=0;x<=360;x+=8){
+      const y=base-Math.abs(Math.sin((x+s)*.019))*amp-Math.sin((x+s)*.041)*7;
+      ctx.lineTo(x,y);
+    }
+    ctx.lineTo(360,640);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawBackground(){
+    const z=zones[zoneIndex()];
+    rect(0,0,360,640,z.sky);
+
+    for(let i=0;i<30;i++){
+      const x=((i*71-scroll()*.11)%390+390)%390-15;
+      rect(x,30+(i*37)%170,1+(i%2),1+(i%2),i%5===0?z.accent:'#737884');
+    }
+
+    if(zoneIndex()===0){
+      circle(285,95,30,'#c9c3aa');
+      circle(295,87,26,z.sky);
+    }
+    if(zoneIndex()===1){
+      rect(0,200,360,18,'#3a1d1c');
+    }
+    if(zoneIndex()===2){
+      for(let i=0;i<5;i++) rect(0,165+i*42,360,8,'rgba(215,225,220,.06)');
+    }
+    if(zoneIndex()===3){
+      rect(0,140,360,2,'#9b7569');
+    }
+
+    mountain(365,70,z.far,.15);
+    mountain(420,44,z.mid,.37);
+
+    if(zoneIndex()===0){
+      const off=(scroll()*1.25)%105;
+      for(let i=-1;i<5;i++){
+        const x=i*105-off;
+        rect(x,380,5,50,z.mid);
+        rect(x+19,390,5,40,z.mid);
+        rect(x-3,376,31,4,z.mid);
+      }
+    }
+
+    if(zoneIndex()===1){
+      const off=(scroll()*1.45)%82;
+      for(let i=-1;i<6;i++){
+        const x=i*82-off;
+        const y=groundY(x)-5;
+        rect(x,y,3,7,'#9e3f29');
+        rect(x+1,y-4,2,6,z.accent);
+      }
+    }
+
+    if(zoneIndex()===2){
+      const off=(scroll()*.66)%120;
+      for(let i=0;i<4;i++) rect(-off,390+i*22,500,6,'rgba(220,230,225,.07)');
+    }
+
+    if(zoneIndex()===3){
+      const x=280-((scroll()*.7)%130);
+      rect(x,335,74,4,z.mid);
+      for(let i=0;i<6;i++) rect(x+6+i*12,339,5,48,z.mid);
+      rect(x-5,387,86,4,z.mid);
+    }
+
+    ctx.fillStyle=z.ground;
+    ctx.beginPath();
+    ctx.moveTo(0,640);
+    for(let x=0;x<=360;x+=4) ctx.lineTo(x,groundY(x));
+    ctx.lineTo(360,640);
+    ctx.closePath();
+    ctx.fill();
+
+    const off=(scroll()*2.1)%52;
+    for(let i=-1;i<9;i++){
+      const x=i*52-off;
+      rect(x,groundY(x)+10+(i%3)*10,3,1,z.mid);
+    }
+  }
+
+  function spawnDust(x,y,c){
+    dust.push({x,y,vx:-8-Math.random()*12,vy:-5-Math.random()*7,a:1,c});
+    if(dust.length>55) dust.shift();
+  }
+
+  function drawDust(dt){
+    for(const p of dust){
+      p.x+=p.vx*dt;
+      p.y+=p.vy*dt;
+      p.vy+=14*dt;
+      p.a-=1.25*dt;
+      if(p.a>0){
+        ctx.globalAlpha=p.a*.5;
+        rect(p.x,p.y,2,2,p.c);
+      }
+    }
+    ctx.globalAlpha=1;
+    dust=dust.filter(p=>p.a>0);
+  }
+
+  function drawRock(cx,cy){
+    ctx.save();
+    ctx.translate(Math.round(cx),Math.round(cy));
+    ctx.rotate(rockRot);
+    circle(0,0,31,'#45474e');
+    circle(-6,-7,21,'#666970');
+    line(-13,-15,2,-9,'#85868c',2);
+    line(5,6,16,12,'#33353b',2);
+    ctx.restore();
+  }
+
+  function drawCharacter(){
+    const active=pushing && will>0;
+    const phase=active?Math.sin(t*6.3):0;
+    const pulse=active?(phase+1)*.5:0;
+
+    const rockX=225+pulse*.5;
+    const rockY=groundY(rockX)-34;
+    drawRock(rockX,rockY);
+
+    const rearFootX=150-phase*.3;
+    const frontFootX=178+phase*.3;
+    const rearFootY=groundY(rearFootX)-1;
+    const frontFootY=groundY(frontFootX)-1;
+
+    const hipX=164+pulse*.5;
+    const hipY=Math.min(rearFootY,frontFootY)-24;
+    const shoulderX=185+pulse*.7;
+    const shoulderY=hipY-22+pulse*.5;
+    const headX=183+pulse*.7;
+    const headY=shoulderY-12;
+
+    const rearKneeX=157-phase*.2;
+    const rearKneeY=rearFootY-12+phase*.2;
+    const frontKneeX=171+phase*.2;
+    const frontKneeY=frontFootY-13-phase*.2;
+
+    line(hipX-3,hipY+4,rearKneeX,rearKneeY,'#8d5943',6);
+    line(rearKneeX,rearKneeY,rearFootX,rearFootY,'#8d5943',6);
+    line(hipX+3,hipY+4,frontKneeX,frontKneeY,'#754936',6);
+    line(frontKneeX,frontKneeY,frontFootX,frontFootY,'#754936',6);
+
+    rect(rearFootX-5,rearFootY,10,3,'#30241d');
+    rect(frontFootX-5,frontFootY,10,3,'#30241d');
+
+    line(hipX,hipY,shoulderX,shoulderY,'#a96c4e',11);
+    rect(hipX-7,hipY-3,15,7,'#d0c3a5');
+
+    circle(headX,headY,7,'#b97a56');
+    rect(headX-6,headY-7,9,3,'#37261f');
+    rect(headX-6,headY-4,3,5,'#37261f');
+
+    const elbowX=199+pulse*.45;
+    const elbowY=shoulderY+6+phase*.2;
+    const handX=210+pulse*.3;
+    const handY=rockY+3;
+    line(shoulderX+1,shoulderY+3,elbowX,elbowY,'#ba7955',6);
+    line(elbowX,elbowY,handX,handY,'#ba7955',6);
+    rect(handX-2,handY-2,5,4,'#ca8a62');
+
+    const elbow2X=198+pulse*.3;
+    const elbow2Y=shoulderY-3;
+    const hand2X=209+pulse*.25;
+    const hand2Y=rockY-9;
+    line(shoulderX,shoulderY,elbow2X,elbow2Y,'#80503b',4);
+    line(elbow2X,elbow2Y,hand2X,hand2Y,'#80503b',4);
+
+    if(active&&Math.random()<.32){
+      spawnDust(rearFootX-2,rearFootY+1,'#aaa08a');
+      if(Math.random()<.55) spawnDust(frontFootX-1,frontFootY+1,'#aaa08a');
+    }
+  }
+
+  function showQuote(item){
+    quoteText.textContent=item.text;
+    quoteSource.textContent=item.source;
+    quoteBox.classList.add('show');
+    clearTimeout(quoteTimer);
+    quoteTimer=setTimeout(()=>quoteBox.classList.remove('show'),2300);
+  }
+
+  function physics(dt){
+    const effort=pushing && will>0;
+
+    if(effort){
+      vel += 2.6*dt;
+      will -= 6.5*dt;
+      rockRot += dt*1.55;
+    }else{
+      vel -= 1.55*dt;
+      will += 30*dt;
+      rockRot -= dt*.45;
+    }
+
+    vel *= Math.pow(.90,dt*10);
+    vel = Math.max(-1.4,Math.min(2.65,vel));
+    pos += vel*dt;
+
+    if(pos<0){
+      if(runPeak*SCALE>80) loops++;
+      pos=0;
+      vel=0;
+      runPeak=0;
+    }
+
+    runPeak=Math.max(runPeak,pos);
+
+    if(pos>best){
+      best=pos;
+      try{ localStorage.setItem('sisyphus_best', String(best*SCALE)); }catch(e){}
+    }
+
+    will=Math.max(0,Math.min(100,will));
+  }
+
+  function events(){
+    const m=Math.floor(meters());
+    const milestone=Math.floor(m/250);
+
+    if(milestone>lastMilestone){
+      lastMilestone=milestone;
+      showQuote(lines[(milestone-1)%lines.length]);
+    }
+
+    const z=zoneIndex();
+    if(z!==lastZone){
+      lastZone=z;
+      showQuote({
+        text: zones[z].name,
+        source: (z+1)+'번째 구간 · '+(z*1000).toLocaleString()+'m 이후'
+      });
+    }
+  }
+
+  function updateUI(){
+    const m=meters();
+    const z=zoneIndex();
+    const within=m%ZONE;
+
+    distEl.textContent=Math.floor(m).toLocaleString();
+    bestEl.textContent=Math.floor(best*SCALE).toLocaleString();
+    bestTopEl.textContent=Math.floor(best*SCALE).toLocaleString();
+    loopsEl.textContent=loops;
+    willEl.style.width=will+'%';
+    zoneEl.textContent=zones[z].name;
+    zoneDistEl.textContent=Math.floor(within).toLocaleString()+' / 1,000m';
+    progressEl.style.width=(within/ZONE*100)+'%';
+
+    holdHint.style.opacity = pushing ? '0' : (started ? '.85' : '0');
+  }
+
+  function frame(now){
+    const dt=Math.min(.033,(now-last)/1000||0);
+    last=now;
+    t+=dt;
+
+    if(started){
+      physics(dt);
+      events();
+    }
+
+    ctx.clearRect(0,0,360,640);
+    drawBackground();
+    drawCharacter();
+    drawDust(dt);
+    updateUI();
+
+    requestAnimationFrame(frame);
+  }
+
+  function setPush(v){
+    if(!started) return;
+    pushing=v;
+    pushBtn.classList.toggle('on',v);
+  }
+
+  function startGame(){
+    started=true;
+    intro.classList.add('hidden');
+    gameShell.focus();
+    setTimeout(()=>showQuote({
+      text:'돌은 이미 그곳에 있다.',
+      source:'이제, 다시 밀 차례다.'
+    }),250);
+  }
+
+  startBtn.addEventListener('click',startGame);
+
+  gameShell.addEventListener('pointerdown',e=>{
+    if(e.target.closest('button')) return;
+    e.preventDefault();
+    setPush(true);
+  });
+  gameShell.addEventListener('pointerup',()=>setPush(false));
+  gameShell.addEventListener('pointercancel',()=>setPush(false));
+  gameShell.addEventListener('pointerleave',()=>setPush(false));
+
+  pushBtn.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    setPush(true);
+    gameShell.focus();
+  });
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=>{
+    pushBtn.addEventListener(ev,()=>setPush(false));
+  });
+
+  const keys=new Set([' ','w','W','ArrowUp']);
+  window.addEventListener('keydown',e=>{
+    if(keys.has(e.key)){
+      e.preventDefault();
+      setPush(true);
+    }
+  },{passive:false});
+  window.addEventListener('keyup',e=>{
+    if(keys.has(e.key)){
+      e.preventDefault();
+      setPush(false);
+    }
+  },{passive:false});
+
+  function showShareStatus(text){
+    shareStatus.textContent=text;
+    shareStatus.classList.add('show');
+    clearTimeout(showShareStatus.timer);
+    showShareStatus.timer=setTimeout(()=>shareStatus.classList.remove('show'),3500);
+  }
+
+  async function copyGameLink(url){
+    try{
+      if(navigator.clipboard && window.isSecureContext){
+        await navigator.clipboard.writeText(url);
+        showShareStatus('링크를 복사했어요. 인스타그램 DM에 붙여넣으면 됩니다.');
+        return true;
+      }
+    }catch(e){}
+
+    try{
+      const ta=document.createElement('textarea');
+      ta.value=url;
+      ta.setAttribute('readonly','');
+      ta.style.position='fixed';
+      ta.style.opacity='0';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0,ta.value.length);
+      const ok=document.execCommand('copy');
+      document.body.removeChild(ta);
+      if(ok){
+        showShareStatus('링크를 복사했어요. 인스타그램 DM에 붙여넣으면 됩니다.');
+        return true;
+      }
+    }catch(e){}
+
+    window.prompt('이 링크를 복사해서 인스타그램 DM으로 보내세요.',url);
+    return false;
+  }
+
+  shareBtn.addEventListener('click',async()=>{
+    const isPublicWeb = location.protocol==='https:' || location.protocol==='http:';
+
+    if(!isPublicWeb){
+      showShareStatus('아직 공개 웹주소가 아니에요. GitHub Pages에 올린 뒤 공유 버튼을 사용해주세요.');
+      return;
+    }
+
+    const cleanUrl = location.href.split('#')[0];
+    const data={
+      title:'시지프 — 끝없는 언덕',
+      text:'내 기록은 '+Math.floor(meters()).toLocaleString()+'m. 너도 돌을 밀어봐.',
+      url:cleanUrl
+    };
+
+    try{
+      const canNativeShare = typeof navigator.share==='function' &&
+        (!navigator.canShare || navigator.canShare(data));
+
+      if(canNativeShare){
+        await navigator.share(data);
+        showShareStatus('공유창을 열었어요. Instagram 또는 메시지를 선택하면 됩니다.');
+        return;
+      }
+    }catch(e){
+      if(e && e.name==='AbortError') return;
+    }
+
+    await copyGameLink(cleanUrl);
+  });
+
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
